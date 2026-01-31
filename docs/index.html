@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>俄羅斯方塊 Pro (含音效與預覽)</title>
+    <title>像素地牢勇者</title>
     <style>
         body {
-            background: #1a1a20;
-            color: #fff;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #222;
+            color: white;
+            font-family: 'Courier New', Courier, monospace;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -16,444 +16,331 @@
             height: 100vh;
             margin: 0;
             overflow: hidden;
-            user-select: none;
         }
-
-        #game-wrapper {
+        h1 { margin: 10px 0; font-size: 24px; text-shadow: 2px 2px #000; }
+        #game-container {
             position: relative;
-            display: flex;
-            gap: 20px;
-            padding: 20px;
-            background: #25252d;
-            border-radius: 10px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            border: 4px solid #555;
         }
-
         canvas {
-            background-color: #000;
-            border-radius: 4px;
+            display: block;
+            background-color: #1a1a1a;
+            image-rendering: pixelated; /* 保持像素清晰 */
         }
-
-        #tetris {
-            border: 2px solid #333;
-            box-shadow: 0 0 15px rgba(0,0,0,0.5);
-        }
-
-        /* 右側面板樣式 */
-        .ui-panel {
+        #ui {
+            width: 600px;
             display: flex;
-            flex-direction: column;
-            gap: 15px;
-            width: 140px;
-        }
-
-        .panel-box {
+            justify-content: space-between;
             background: #333;
             padding: 10px;
-            border-radius: 6px;
-            text-align: center;
-            border: 1px solid #444;
+            box-sizing: border-box;
+            border: 4px solid #555;
+            border-top: none;
+            font-size: 18px;
         }
-
-        .label {
-            font-size: 0.8em;
+        .stat { color: #ddd; }
+        #log {
+            font-size: 14px;
             color: #aaa;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            margin-top: 10px;
+            height: 20px;
         }
-
-        .value {
-            font-size: 1.4em;
-            font-weight: bold;
-            color: #fff;
-        }
-
-        /* 預覽畫布 */
-        #next-piece {
-            margin: 0 auto;
-            display: block;
-            background: #111;
-        }
-
-        /* 遊戲覆蓋層 (開始/暫停) */
-        #overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.85);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-
-        #overlay h1 {
-            font-size: 3em;
-            margin: 0 0 20px 0;
-            background: linear-gradient(45deg, #FF0D72, #0DC2FF);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 20px rgba(13, 194, 255, 0.3);
-        }
-
-        #overlay p {
-            font-size: 1.2em;
-            color: #ddd;
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
-        }
-
-        .controls-hint {
-            margin-top: 30px;
-            font-size: 0.8em;
-            color: #666 !important;
-            animation: none !important;
+        .controls {
+            margin-top: 15px;
+            font-size: 12px;
+            color: #666;
         }
     </style>
 </head>
 <body>
 
-    <div id="game-wrapper">
-        <canvas id="tetris" width="240" height="400"></canvas>
-        
-        <div class="ui-panel">
-            <div class="panel-box">
-                <div class="label">Next</div>
-                <canvas id="next-piece" width="80" height="80"></canvas>
-            </div>
-
-            <div class="panel-box">
-                <div class="label">Score</div>
-                <div id="score" class="value">0</div>
-            </div>
-
-            <div class="panel-box">
-                <div class="label">Level</div>
-                <div id="level" class="value">1</div>
-            </div>
-        </div>
-
-        <div id="overlay">
-            <h1>TETRIS</h1>
-            <p>點擊畫面開始遊戲</p>
-            <p class="controls-hint">使用方向鍵移動與旋轉</p>
-        </div>
+    <h1>🏰 像素地牢勇者</h1>
+    
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="400"></canvas>
     </div>
 
-    <script>
-        // --- 音效系統 (Web Audio API) ---
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        
-        const sound = {
-            playTone: (freq, type, duration, vol = 0.1) => {
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-                gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start();
-                osc.stop(audioCtx.currentTime + duration);
-            },
-            move: () => sound.playTone(400, 'square', 0.05, 0.05),
-            rotate: () => sound.playTone(600, 'triangle', 0.05, 0.05),
-            drop: () => sound.playTone(150, 'sawtooth', 0.1, 0.1),
-            clear: (lines) => {
-                // 消除音效 (琶音)
-                const base = 440 + (lines * 50);
-                setTimeout(() => sound.playTone(base, 'sine', 0.1, 0.1), 0);
-                setTimeout(() => sound.playTone(base * 1.25, 'sine', 0.1, 0.1), 100);
-                setTimeout(() => sound.playTone(base * 1.5, 'sine', 0.2, 0.1), 200);
-            },
-            gameOver: () => {
-                sound.playTone(100, 'sawtooth', 1.0, 0.2);
-                sound.playTone(80, 'sawtooth', 1.0, 0.2);
-            }
-        };
+    <div id="ui">
+        <span class="stat" id="level-display">LV: 1</span>
+        <span class="stat" id="hp-display">HP: 100/100</span>
+        <span class="stat" id="xp-display">XP: 0/50</span>
+        <span class="stat" id="floor-display">B1F</span>
+    </div>
+    <div id="log">歡迎來到地牢...</div>
+    <div class="controls">控制: WASD 或 方向鍵移動/攻擊 | 空白鍵: 跳過回合</div>
 
-        // --- 遊戲核心 ---
-        const canvas = document.getElementById('tetris');
-        const context = canvas.getContext('2d');
-        const nextCanvas = document.getElementById('next-piece');
-        const nextContext = nextCanvas.getContext('2d');
-        
-        context.scale(20, 20);
-        nextContext.scale(20, 20);
+<script>
+    // --- 遊戲設定 ---
+    const TILE_SIZE = 40; // 格子大小
+    const COLS = 15;
+    const ROWS = 10;
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
 
-        // 狀態管理
-        let isGameRunning = false;
-        let animationId = null;
+    // --- 遊戲狀態 ---
+    let player = {
+        x: 1,
+        y: 1,
+        hp: 100,
+        maxHp: 100,
+        level: 1,
+        xp: 0,
+        nextLevelXp: 50,
+        damage: 10,
+        color: '#4a90e2' // 藍色勇者
+    };
 
-        const colors = [
-            null,
-            '#FF0D72', '#0DC2FF', '#0DFF72', '#F538FF', '#FF8E0D', '#FFE138', '#3877FF',
-        ];
+    let floor = 1;
+    let enemies = [];
+    let messages = [];
+    
+    // 簡單的音效 (使用 Web Audio API 或是簡單的 beep 模擬，這裡僅作視覺提示)
+    
+    function log(msg) {
+        document.getElementById('log').innerText = msg;
+    }
 
-        // 方塊定義
-        function createPiece(type) {
-            if (type === 'I') return [[0, 1, 0, 0],[0, 1, 0, 0],[0, 1, 0, 0],[0, 1, 0, 0]];
-            if (type === 'L') return [[0, 2, 0],[0, 2, 0],[0, 2, 2]];
-            if (type === 'J') return [[0, 3, 0],[0, 3, 0],[3, 3, 0]];
-            if (type === 'O') return [[4, 4],[4, 4]];
-            if (type === 'Z') return [[5, 5, 0],[0, 5, 5],[0, 0, 0]];
-            if (type === 'S') return [[0, 6, 6],[6, 6, 0],[0, 0, 0]];
-            if (type === 'T') return [[0, 7, 0],[7, 7, 7],[0, 0, 0]];
-        }
+    function updateUI() {
+        document.getElementById('level-display').innerText = `LV: ${player.level}`;
+        document.getElementById('hp-display').innerText = `HP: ${player.hp}/${player.maxHp}`;
+        document.getElementById('xp-display').innerText = `XP: ${player.xp}/${player.nextLevelXp}`;
+        document.getElementById('floor-display').innerText = `B${floor}F`;
+    }
 
-        // 創建矩陣
-        function createMatrix(w, h) {
-            const matrix = [];
-            while (h--) matrix.push(new Array(w).fill(0));
-            return matrix;
-        }
+    // --- 生成地圖與敵人 ---
+    function spawnEnemies() {
+        enemies = [];
+        let count = 3 + Math.floor(floor * 0.5); // 隨層數增加敵人
+        for (let i = 0; i < count; i++) {
+            let ex, ey;
+            do {
+                ex = Math.floor(Math.random() * COLS);
+                ey = Math.floor(Math.random() * ROWS);
+            } while ((ex === player.x && ey === player.y) || enemies.some(e => e.x === ex && e.y === ey));
 
-        // 繪製函數 (通用)
-        function drawMatrix(matrix, offset, ctx) {
-            matrix.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) {
-                        ctx.fillStyle = colors[value];
-                        ctx.fillRect(x + offset.x, y + offset.y, 1, 1);
-                        
-                        // 立體效果
-                        ctx.lineWidth = 0.05;
-                        ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-                        ctx.strokeRect(x + offset.x, y + offset.y, 1, 1);
-                        
-                        ctx.fillStyle = 'rgba(0,0,0,0.2)';
-                        ctx.fillRect(x + offset.x + 0.1, y + offset.y + 0.8, 0.8, 0.1);
-                        ctx.fillRect(x + offset.x + 0.8, y + offset.y + 0.1, 0.1, 0.8);
-                    }
-                });
+            enemies.push({
+                x: ex,
+                y: ey,
+                hp: 20 + (floor * 5),
+                maxHp: 20 + (floor * 5),
+                damage: 5 + floor,
+                color: '#e74c3c', // 紅色史萊姆
+                type: '史萊姆'
             });
         }
+    }
 
-        // 主畫面繪製
-        function draw() {
-            context.fillStyle = '#000';
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            drawMatrix(arena, {x: 0, y: 0}, context);
-            drawMatrix(player.matrix, player.pos, context);
+    // --- 繪圖系統 ---
+    function drawRect(x, y, color, border = false) {
+        ctx.fillStyle = color;
+        ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        if (border) {
+            ctx.strokeStyle = "rgba(0,0,0,0.3)";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        }
+    }
+
+    function drawPixelArt(x, y, type) {
+        // 簡單的 Canvas 繪圖模擬像素圖
+        const cx = x * TILE_SIZE;
+        const cy = y * TILE_SIZE;
+        const size = TILE_SIZE;
+
+        if (type === 'player') {
+            // 勇者頭像
+            ctx.fillStyle = player.color;
+            ctx.fillRect(cx + 5, cy + 5, size - 10, size - 10);
+            // 眼睛
+            ctx.fillStyle = "white";
+            ctx.fillRect(cx + 10, cy + 12, 6, 6);
+            ctx.fillRect(cx + 24, cy + 12, 6, 6);
+            ctx.fillStyle = "black";
+            ctx.fillRect(cx + 12, cy + 14, 2, 2);
+            ctx.fillRect(cx + 26, cy + 14, 2, 2);
+        } else if (type === 'enemy') {
+            // 史萊姆
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillRect(cx + 8, cy + 15, size - 16, size - 20); // 身體
+            ctx.fillRect(cx + 12, cy + 10, size - 24, 10); // 頭頂
+            // 眼睛
+            ctx.fillStyle = "yellow";
+            ctx.fillRect(cx + 12, cy + 18, 4, 4);
+            ctx.fillRect(cx + 24, cy + 18, 4, 4);
+        }
+    }
+
+    function draw() {
+        // 清空背景
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 畫地板網格
+        ctx.strokeStyle = '#2a2a2a';
+        ctx.lineWidth = 1;
+        for (let x = 0; x < COLS; x++) {
+            for (let y = 0; y < ROWS; y++) {
+                ctx.strokeRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+            }
         }
 
-        // 預覽畫面繪製
-        function drawNext() {
-            nextContext.fillStyle = '#111';
-            nextContext.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+        // 畫敵人
+        enemies.forEach(e => {
+            drawPixelArt(e.x, e.y, 'enemy');
+            // 血條
+            const hpPercent = e.hp / e.maxHp;
+            ctx.fillStyle = 'red';
+            ctx.fillRect(e.x * TILE_SIZE + 5, e.y * TILE_SIZE - 5, 30, 4);
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(e.x * TILE_SIZE + 5, e.y * TILE_SIZE - 5, 30 * hpPercent, 4);
+        });
+
+        // 畫玩家
+        drawPixelArt(player.x, player.y, 'player');
+    }
+
+    // --- 遊戲邏輯 ---
+    function movePlayer(dx, dy) {
+        if (player.hp <= 0) return;
+
+        const newX = player.x + dx;
+        const newY = player.y + dy;
+
+        // 邊界檢查
+        if (newX < 0 || newX >= COLS || newY < 0 || newY >= ROWS) return;
+
+        // 敵人碰撞檢查
+        const targetEnemyIndex = enemies.findIndex(e => e.x === newX && e.y === newY);
+
+        if (targetEnemyIndex !== -1) {
+            // 攻擊敵人
+            const enemy = enemies[targetEnemyIndex];
+            const dmg = Math.floor(player.damage * (1 + Math.random() * 0.2)); // 浮動傷害
+            enemy.hp -= dmg;
+            log(`你攻擊史萊姆，造成 ${dmg} 點傷害！`);
             
-            // 計算置中偏移
-            const xOffset = (4 - player.next.length) / 2;
-            const yOffset = (4 - player.next[0].length) / 2;
-            
-            drawMatrix(player.next, {x: xOffset, y: yOffset}, nextContext);
-        }
+            // 震動效果
+            canvas.style.transform = `translate(${Math.random()*4-2}px, ${Math.random()*4-2}px)`;
+            setTimeout(() => canvas.style.transform = 'none', 50);
 
-        function merge(arena, player) {
-            player.matrix.forEach((row, y) => {
-                row.forEach((value, x) => {
-                    if (value !== 0) {
-                        arena[y + player.pos.y][x + player.pos.x] = value;
-                    }
-                });
-            });
-        }
-
-        function rotate(matrix, dir) {
-            for (let y = 0; y < matrix.length; ++y) {
-                for (let x = 0; x < y; ++x) {
-                    [matrix[x][y], matrix[y][x]] = [matrix[y][x], matrix[x][y]];
-                }
-            }
-            if (dir > 0) matrix.forEach(row => row.reverse());
-            else matrix.reverse();
-        }
-
-        function collide(arena, player) {
-            const [m, o] = [player.matrix, player.pos];
-            for (let y = 0; y < m.length; ++y) {
-                for (let x = 0; x < m[y].length; ++x) {
-                    if (m[y][x] !== 0 && (arena[y + o.y] && arena[y + o.y][x + o.x]) !== 0) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        function arenaSweep() {
-            let rowCount = 0;
-            outer: for (let y = arena.length - 1; y > 0; --y) {
-                for (let x = 0; x < arena[y].length; ++x) {
-                    if (arena[y][x] === 0) continue outer;
-                }
-                const row = arena.splice(y, 1)[0].fill(0);
-                arena.unshift(row);
-                ++y;
-                rowCount++;
-            }
-            if (rowCount > 0) {
-                sound.clear(rowCount); // 播放消除音效
-                player.score += rowCount * 100 * rowCount;
-                player.lines += rowCount;
-                player.level = Math.floor(player.lines / 10) + 1;
+            if (enemy.hp <= 0) {
+                enemies.splice(targetEnemyIndex, 1);
+                gainXp(15 + floor * 5);
+                log("史萊姆被擊敗了！");
                 
-                // 升級加速
-                dropInterval = Math.max(100, 1000 - (player.level - 1) * 100); 
-                updateScore();
+                // 檢查是否下一層
+                if (enemies.length === 0) {
+                    setTimeout(nextFloor, 500);
+                }
             }
+        } else {
+            // 移動
+            player.x = newX;
+            player.y = newY;
         }
 
-        function playerReset() {
-            const pieces = 'ILJOTSZ';
-            
-            // 如果還沒有下一個方塊（第一次開始），先產生一個
-            if (player.next === null) {
-                player.next = createPiece(pieces[pieces.length * Math.random() | 0]);
-            }
-            
-            // 當前方塊 = 下一個方塊
-            player.matrix = player.next;
-            // 產生新的下一個方塊
-            player.next = createPiece(pieces[pieces.length * Math.random() | 0]);
-            
-            player.pos.y = 0;
-            player.pos.x = (arena[0].length / 2 | 0) - (player.matrix[0].length / 2 | 0);
-            
-            drawNext(); // 更新預覽
+        enemyTurn();
+        draw();
+        updateUI();
+    }
 
-            if (collide(arena, player)) {
-                sound.gameOver();
-                gameOver();
-            }
+    function gainXp(amount) {
+        player.xp += amount;
+        if (player.xp >= player.nextLevelXp) {
+            player.level++;
+            player.xp -= player.nextLevelXp;
+            player.nextLevelXp = Math.floor(player.nextLevelXp * 1.5);
+            player.maxHp += 20;
+            player.hp = player.maxHp;
+            player.damage += 5;
+            log(`升級了！目前等級 ${player.level}`);
         }
+    }
 
-        function playerDrop() {
-            player.pos.y++;
-            if (collide(arena, player)) {
-                player.pos.y--;
-                merge(arena, player);
-                sound.drop(); // 播放落地音效
-                playerReset();
-                arenaSweep();
-                updateScore();
-            }
-            dropCounter = 0;
-        }
+    function enemyTurn() {
+        enemies.forEach(e => {
+            if (Math.random() < 0.3) return; // 敵人有時候會發呆
 
-        function playerMove(dir) {
-            player.pos.x += dir;
-            if (collide(arena, player)) {
-                player.pos.x -= dir;
+            const dx = player.x - e.x;
+            const dy = player.y - e.y;
+            let moveX = 0;
+            let moveY = 0;
+
+            if (Math.abs(dx) > Math.abs(dy)) {
+                moveX = dx > 0 ? 1 : -1;
             } else {
-                sound.move(); // 播放移動音效
+                moveY = dy > 0 ? 1 : -1;
             }
-        }
 
-        function playerRotate(dir) {
-            const pos = player.pos.x;
-            let offset = 1;
-            rotate(player.matrix, dir);
-            while (collide(arena, player)) {
-                player.pos.x += offset;
-                offset = -(offset + (offset > 0 ? 1 : -1));
-                if (offset > player.matrix[0].length) {
-                    rotate(player.matrix, -dir);
-                    player.pos.x = pos;
-                    return;
+            // 檢查目標位置是否有其他敵人
+            if (!enemies.some(other => other !== e && other.x === e.x + moveX && other.y === e.y + moveY)) {
+                if (e.x + moveX === player.x && e.y + moveY === player.y) {
+                    // 攻擊玩家
+                    const dmg = Math.max(1, e.damage - Math.floor(player.level / 2));
+                    player.hp -= dmg;
+                    log(`史萊姆攻擊你，受到 ${dmg} 點傷害！`);
+                    if (player.hp <= 0) {
+                        log("你已經死亡... 按 F5 重新開始");
+                        player.color = '#555'; // 變灰色
+                    }
+                } else {
+                    e.x += moveX;
+                    e.y += moveY;
                 }
             }
-            sound.rotate(); // 播放旋轉音效
-        }
-
-        function updateScore() {
-            document.getElementById('score').innerText = player.score;
-            document.getElementById('level').innerText = player.level;
-        }
-
-        function gameOver() {
-            isGameRunning = false;
-            cancelAnimationFrame(animationId);
-            document.querySelector('#overlay h1').innerText = "GAME OVER";
-            document.querySelector('#overlay p').innerText = `最終分數: ${player.score} - 點擊重新開始`;
-            document.getElementById('overlay').style.display = 'flex';
-        }
-
-        let dropCounter = 0;
-        let dropInterval = 1000;
-        let lastTime = 0;
-
-        function update(time = 0) {
-            if (!isGameRunning) return;
-            
-            const deltaTime = time - lastTime;
-            lastTime = time;
-
-            dropCounter += deltaTime;
-            if (dropCounter > dropInterval) {
-                playerDrop();
-            }
-
-            draw();
-            animationId = requestAnimationFrame(update);
-        }
-
-        const arena = createMatrix(12, 20);
-
-        const player = {
-            pos: {x: 0, y: 0},
-            matrix: null,
-            next: null,
-            score: 0,
-            lines: 0,
-            level: 1,
-        };
-
-        // 按鍵監聽
-        document.addEventListener('keydown', event => {
-            if (!isGameRunning) return;
-            
-            if (event.keyCode === 37) playerMove(-1);
-            else if (event.keyCode === 39) playerMove(1);
-            else if (event.keyCode === 40) playerDrop();
-            else if (event.keyCode === 81) playerRotate(-1);
-            else if (event.keyCode === 87 || event.keyCode === 38) playerRotate(1);
         });
+    }
 
-        // 點擊開始
-        document.getElementById('overlay').addEventListener('click', () => {
-            const overlay = document.getElementById('overlay');
-            
-            if (!isGameRunning) {
-                // 重置遊戲
-                arena.forEach(row => row.fill(0));
-                player.score = 0;
-                player.lines = 0;
-                player.level = 1;
-                player.next = null; // 重置預覽
-                dropInterval = 1000;
-                updateScore();
-                
-                // 啟動 AudioContext (瀏覽器要求必須在用戶互動後)
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                
-                playerReset();
-                isGameRunning = true;
-                overlay.style.display = 'none';
-                update();
-            }
-        });
+    function nextFloor() {
+        floor++;
+        log(`進入地下 ${floor} 層...`);
+        player.x = 0;
+        player.y = 0;
+        player.hp = Math.min(player.hp + 20, player.maxHp); // 回復一點血
+        spawnEnemies();
+        draw();
+        updateUI();
+    }
 
-    </script>
+    // --- 輸入控制 ---
+    window.addEventListener('keydown', (e) => {
+        if (player.hp <= 0) return;
+        
+        switch(e.key) {
+            case 'ArrowUp':
+            case 'w':
+            case 'W':
+                movePlayer(0, -1);
+                break;
+            case 'ArrowDown':
+            case 's':
+            case 'S':
+                movePlayer(0, 1);
+                break;
+            case 'ArrowLeft':
+            case 'a':
+            case 'A':
+                movePlayer(-1, 0);
+                break;
+            case 'ArrowRight':
+            case 'd':
+            case 'D':
+                movePlayer(1, 0);
+                break;
+            case ' ':
+                enemyTurn(); // 等待一回合
+                draw();
+                updateUI();
+                break;
+        }
+    });
+
+    // --- 啟動遊戲 ---
+    spawnEnemies();
+    draw();
+    updateUI();
+
+</script>
 </body>
 </html>
