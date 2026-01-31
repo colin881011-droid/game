@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>簡易網頁 RPG 原型</title>
+    <title>簡易網頁 RPG 原型 (有圖版)</title>
     <style>
-        /* --- CSS 樣式區 (讓遊戲看起來像個樣子) --- */
+        /* --- CSS 樣式區 --- */
         body {
             font-family: 'Microsoft JhengHei', Arial, sans-serif;
             background-color: #2c3e50;
@@ -28,26 +28,52 @@
 
         h1 {
             text-align: center;
-            color: #e67e22;
+            color: #f1c40f;
+            margin-bottom: 30px;
         }
 
         .battle-area {
             display: flex;
             justify-content: space-between;
             margin-bottom: 30px;
+            align-items: flex-end; /* 讓角色底部對齊 */
         }
 
         .character-box {
             background-color: #2c3e50;
             padding: 20px;
-            border-radius: 10px;
-            border: 2px solid #7f8c8d;
-            width: 45%;
+            border-radius: 15px;
+            border: 3px solid #7f8c8d;
+            width: 42%;
             text-align: center;
+            position: relative;
+            transition: transform 0.3s; /* 增加一點動態感 */
+        }
+        
+        /* 當輪到該角色時，稍微放大提示 */
+        .active-turn {
+             border-color: #f1c40f;
+             transform: scale(1.05);
+             box-shadow: 0 0 15px rgba(241, 196, 15, 0.5);
         }
 
+        /* --- 新增：角色圖片樣式 --- */
+        .character-img-container {
+            margin-bottom: 15px;
+        }
+
+        .character-img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%; /* 變成圓形頭像 */
+            border: 4px solid #bdc3c7;
+            object-fit: cover; /* 確保圖片比例正常填滿 */
+            background-color: #95a5a6; /* 圖片載入前的背景色 */
+        }
+        /* ------------------------- */
+
         .character-name {
-            font-size: 1.5em;
+            font-size: 1.3em;
             font-weight: bold;
             margin-bottom: 10px;
         }
@@ -56,17 +82,18 @@
         .health-bar-container {
             width: 100%;
             background-color: #555;
-            height: 20px;
+            height: 15px;
             border-radius: 10px;
             overflow: hidden;
-            margin-top: 5px;
+            margin-top: 8px;
+            border: 2px solid #444;
         }
 
         .health-bar-fill {
             height: 100%;
             background-color: #2ecc71; /* 綠色血條 */
-            width: 100%; /* 初始滿血 */
-            transition: width 0.3s ease-in-out;
+            width: 100%;
+            transition: width 0.4s ease-in-out;
         }
         
         .enemy-health {
@@ -79,56 +106,74 @@
             padding: 20px;
             background-color: #2c3e50;
             border-radius: 10px;
+            border: 2px solid #3498db;
+        }
+        
+        .control-title {
+            margin-bottom: 15px;
+            font-weight: bold;
         }
 
         button {
-            background-color: #e67e22;
+            background-color: #3498db;
             color: white;
             border: none;
             padding: 12px 24px;
             font-size: 1em;
             margin: 5px;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: all 0.2s;
+            font-weight: bold;
+            box-shadow: 0 4px #2980b9;
+        }
+        
+        button:active {
+            box-shadow: 0 2px #2980b9;
+            transform: translateY(2px);
         }
 
-        button:hover {
-            background-color: #d35400;
+        button:hover:not(:disabled) {
+            background-color: #5dade2;
         }
 
         button:disabled {
             background-color: #95a5a6;
+            box-shadow: none;
             cursor: not-allowed;
+            opacity: 0.7;
         }
 
         #combat-log {
             background-color: #222;
             color: #eee;
             height: 150px;
-            overflow-y: auto; /* 如果內容太多，顯示滾動條 */
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #555;
-            font-family: monospace;
+            overflow-y: auto;
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid #555;
+            font-family: 'Courier New', monospace;
             font-size: 0.9em;
+            line-height: 1.4;
         }
 
-        .log-entry {
-            margin-bottom: 5px;
-        }
+        .log-entry { margin-bottom: 6px; }
         .log-player { color: #2ecc71; }
         .log-enemy { color: #e74c3c; }
-        .log-system { color: #f1c40f; font-weight: bold; }
+        .log-system { color: #f1c40f; font-weight: bold; border-top: 1px dashed #555; padding-top: 5px; margin-top: 5px;}
+        .log-heal { color: #3498db; }
     </style>
 </head>
 <body>
 
 <div id="game-container">
-    <h1>勇者鬥惡龍 (網頁版)</h1>
+    <h1>⚔️ 勇者鬥惡龍 (圖文版) 🛡️</h1>
 
     <div class="battle-area">
-        <div class="character-box" id="player-box">
+        <div class="character-box active-turn" id="player-box">
+            <div class="character-img-container">
+                <img src="https://placehold.co/150x150/3498db/ffffff?text=勇者(你)" alt="主角" class="character-img" id="player-img">
+            </div>
             <div class="character-name" id="player-name">勇者阿明</div>
             <div>HP: <span id="player-hp-text">100</span> / <span id="player-max-hp-text">100</span></div>
             <div class="health-bar-container">
@@ -137,7 +182,10 @@
         </div>
 
         <div class="character-box" id="enemy-box">
-            <div class="character-name" id="enemy-name">邪惡史萊姆</div>
+            <div class="character-img-container">
+                <img src="" alt="敵人" class="character-img" id="enemy-img">
+            </div>
+            <div class="character-name" id="enemy-name">敵人名稱</div>
             <div>HP: <span id="enemy-hp-text">80</span> / <span id="enemy-max-hp-text">80</span></div>
             <div class="health-bar-container">
                 <div id="enemy-health-bar" class="health-bar-fill enemy-health"></div>
@@ -146,44 +194,62 @@
     </div>
 
     <div class="controls-area">
-        <p>輪到你了！選擇行動：</p>
-        <button id="btn-attack">⚔️ 普通攻擊</button>
+        <div class="control-title">輪到你了！選擇行動：</div>
+        <button id="btn-attack">⚔️ 全力攻擊</button>
         <button id="btn-heal">💊 喝藥水 (剩3瓶)</button>
     </div>
 
     <div id="combat-log">
-        <div class="log-entry log-system">戰鬥開始！史萊姆出現了！</div>
+        <div class="log-entry">=== 冒險開始 ===</div>
     </div>
 </div>
 
 
 <script>
-    /* --- JavaScript 邏輯區 (遊戲的大腦) --- */
+    /* --- JavaScript 邏輯區 --- */
 
     // 1. 定義遊戲數據
     let player = {
         name: "勇者阿明",
-        maxHp: 100,
-        hp: 100,
-        attack: 15,
+        maxHp: 120,
+        hp: 120,
+        attack: 18,
         defense: 5,
-        potions: 3
+        potions: 5,
+        // 主角圖片通常固定，也可以寫在 HTML 裡
+        img: "https://placehold.co/150x150/3498db/ffffff?text=勇者(你)"
     };
 
-    // 敵人資料 (可以設計多種敵人)
+    // 敵人資料 (新增了 img 屬性，使用不同顏色的佔位圖)
     let slimes = [
-        { name: "新手史萊姆", maxHp: 60, hp: 60, attack: 10, defense: 2 },
-        { name: "火焰史萊姆", maxHp: 80, hp: 80, attack: 18, defense: 4 },
-        { name: "史萊姆王", maxHp: 150, hp: 150, attack: 25, defense: 8 }
+        { 
+            name: "綠色史萊姆", 
+            maxHp: 50, hp: 50, attack: 12, defense: 2, 
+            img: "https://placehold.co/150x150/2ecc71/ffffff?text=綠史萊姆" // 綠色
+        },
+        { 
+            name: "紅色史萊姆", 
+            maxHp: 80, hp: 80, attack: 16, defense: 4, 
+            img: "https://placehold.co/150x150/e74c3c/ffffff?text=紅史萊姆" // 紅色
+        },
+        { 
+            name: "暗黑史萊姆王", 
+            maxHp: 180, hp: 180, attack: 25, defense: 10, 
+            img: "https://placehold.co/150x150/8e44ad/ffffff?text=史萊姆王" // 紫色
+        }
     ];
     
-    let currentEnemy = { ...slimes[0] }; // 複製第一個敵人作為當前敵人
-    let isPlayerTurn = true; // 控制回合
+    let currentEnemy = { ...slimes[0] };
+    let isPlayerTurn = true;
 
-    // 2. 獲取 HTML 元素 (DOM Elements)
+    // 2. 獲取 HTML 元素
+    const playerBox = document.getElementById('player-box');
+    const enemyBox = document.getElementById('enemy-box');
     const playerHpText = document.getElementById('player-hp-text');
     const playerHealthBar = document.getElementById('player-health-bar');
     const enemyNameText = document.getElementById('enemy-name');
+    // 新增：獲取敵人圖片元素
+    const enemyImgElement = document.getElementById('enemy-img');
     const enemyHpText = document.getElementById('enemy-hp-text');
     const enemyMaxHpText = document.getElementById('enemy-max-hp-text');
     const enemyHealthBar = document.getElementById('enemy-health-bar');
@@ -191,144 +257,158 @@
     const btnHeal = document.getElementById('btn-heal');
     const combatLog = document.getElementById('combat-log');
 
-    // 3. 輔助函數 (工具)
+    // 3. 輔助函數
 
-    // 更新畫面上所有數據的函數
     function updateUI() {
-        // 更新數字
-        playerHpText.textContent = Math.max(0, player.hp); // 確保不會顯示負數
+        // 更新數字和文字
+        playerHpText.textContent = Math.max(0, player.hp);
         enemyHpText.textContent = Math.max(0, currentEnemy.hp);
         enemyMaxHpText.textContent = currentEnemy.maxHp;
         enemyNameText.textContent = currentEnemy.name;
+        
+        // 重點：更新敵人的圖片連結
+        enemyImgElement.src = currentEnemy.img;
 
-        // 更新血條寬度百分比
+        // 更新血條
         const playerHpPercent = (player.hp / player.maxHp) * 100;
         playerHealthBar.style.width = `${Math.max(0, playerHpPercent)}%`;
 
         const enemyHpPercent = (currentEnemy.hp / currentEnemy.maxHp) * 100;
         enemyHealthBar.style.width = `${Math.max(0, enemyHpPercent)}%`;
 
-        // 更新藥水按鈕文字
+        // 更新按鈕
         btnHeal.textContent = `💊 喝藥水 (剩${player.potions}瓶)`;
         
-        // 控制按鈕狀態
         if (!isPlayerTurn || player.hp <= 0) {
             btnAttack.disabled = true;
             btnHeal.disabled = true;
         } else {
             btnAttack.disabled = false;
-            btnHeal.disabled = player.potions <= 0; // 如果沒藥水就禁用
+            btnHeal.disabled = player.potions <= 0;
+        }
+
+        // 更新回合視覺提示 (誰的回合誰發光)
+        if (isPlayerTurn && player.hp > 0 && currentEnemy.hp > 0) {
+            playerBox.classList.add('active-turn');
+            enemyBox.classList.remove('active-turn');
+        } else if (!isPlayerTurn && player.hp > 0 && currentEnemy.hp > 0){
+            playerBox.classList.remove('active-turn');
+            enemyBox.classList.add('active-turn');
+        } else {
+            // 遊戲結束時都不發光
+            playerBox.classList.remove('active-turn');
+            enemyBox.classList.remove('active-turn');
         }
     }
 
-    // 在記錄區新增訊息的函數
-    function addLog(message, type = 'system') {
+    function addLog(message, type = '') {
         const logEntry = document.createElement('div');
         logEntry.className = `log-entry log-${type}`;
-        logEntry.textContent = message;
+        logEntry.textContent = "• " + message;
         combatLog.appendChild(logEntry);
-        // 自動滾動到底部
         combatLog.scrollTop = combatLog.scrollHeight;
     }
 
-    // 傷害計算公式 (簡單版：攻擊力 - 隨機防禦值)
     function calculateDamage(attackerAttack, defenderDefense) {
-        // 防禦力在 50% 到 100% 之間浮動
-        let actualDefense = Math.floor(Math.random() * (defenderDefense * 0.5)) + (defenderDefense * 0.5);
-        // 傷害浮動 +/- 20%
+        let actualDefense = Math.floor(Math.random() * (defenderDefense * 0.6)) + (defenderDefense * 0.4);
         let baseDamage = attackerAttack - actualDefense;
-        let finalDamage = Math.floor(baseDamage * (0.8 + Math.random() * 0.4));
-        return Math.max(1, finalDamage); // 至少造成 1 點傷害
+        // 傷害浮動範圍加大
+        let finalDamage = Math.floor(baseDamage * (0.7 + Math.random() * 0.6));
+        return Math.max(2, finalDamage); // 至少造成 2 點傷害
     }
-
 
     // 4. 遊戲核心邏輯
 
-    // 檢查遊戲是否結束
     function checkGameOver() {
         if (currentEnemy.hp <= 0) {
-            addLog(`${currentEnemy.name} 被打倒了！你贏了！`, 'system');
-            addLog(`--- 遭遇新的敵人！ ---`, 'system');
-            // 簡單的升級機制
-            player.maxHp += 10;
+            addLog(`${currentEnemy.name} 被打倒了！`, 'system');
+            
+            // 升級機制
+            player.maxHp += 15;
             player.hp = player.maxHp;
-            player.attack += 2;
-            addLog(`恭喜升級！HP和攻擊力提升了！`, 'system');
+            player.attack += 3;
+            player.defense += 1;
+            addLog(`升級！HP、攻擊和防禦提升了！HP已回滿。`, 'system');
             
             // 隨機選擇下一個敵人
-            currentEnemy = { ...slimes[Math.floor(Math.random() * slimes.length)] };
-            currentEnemy.hp = currentEnemy.maxHp; // 重置敵人血量
+            let nextEnemyIndex = Math.floor(Math.random() * slimes.length);
+            currentEnemy = { ...slimes[nextEnemyIndex] };
+            currentEnemy.hp = currentEnemy.maxHp;
+
+            addLog(`遭遇了新的敵人：${currentEnemy.name}！`, 'system');
 
             isPlayerTurn = true;
             updateUI();
-            return true; // 戰鬥結束狀態
+            return true;
         }
 
         if (player.hp <= 0) {
-            addLog(`${player.name} 力盡倒下了... 遊戲結束 (請重新整理網頁重來)`, 'system');
+            addLog(`${player.name} 被擊敗了... 遊戲結束。`, 'enemy');
             btnAttack.disabled = true;
             btnHeal.disabled = true;
+            updateUI(); // 確保最後狀態正確移除發光
             return true;
         }
         return false;
     }
 
-    // 敵人的回合行動
     function enemyAction() {
-        addLog(`輪到 ${currentEnemy.name} 行動...`);
-        
         setTimeout(() => {
-            // 簡單的 AI：只會攻擊
             let damage = calculateDamage(currentEnemy.attack, player.defense);
             player.hp -= damage;
-            addLog(`${currentEnemy.name} 對你造成了 ${damage} 點傷害！`, 'enemy');
+            addLog(`${currentEnemy.name} 攻擊！對你造成 ${damage} 點傷害！`, 'enemy');
             
             updateUI();
             if (!checkGameOver()) {
                 isPlayerTurn = true;
-                addLog(`--- 輪到你了 ---`);
                 updateUI();
             }
-        }, 800); // 延遲 800毫秒讓玩家看清楚
+        }, 1000); // 敵人思考時間
     }
 
-    // 玩家行動：攻擊
     function playerAttack() {
         if (!isPlayerTurn) return;
 
         let damage = calculateDamage(player.attack, currentEnemy.defense);
-        currentEnemy.hp -= damage;
-        addLog(`你攻擊了 ${currentEnemy.name}，造成 ${damage} 點傷害！`, 'player');
+        
+        // 加入一點爆擊機率
+        let isCritical = Math.random() < 0.2; // 20% 機率
+        if (isCritical) {
+            damage = Math.floor(damage * 1.5);
+            addLog(`【爆擊！】你狠狠地攻擊了 ${currentEnemy.name}，造成 ${damage} 點傷害！`, 'player');
+        } else {
+            addLog(`你攻擊了 ${currentEnemy.name}，造成 ${damage} 點傷害。`, 'player');
+        }
 
+        currentEnemy.hp -= damage;
         isPlayerTurn = false;
         updateUI();
 
         if (!checkGameOver()) {
-            // 如果敵人沒死，輪到敵人行動
             enemyAction();
         }
     }
 
-    // 玩家行動：喝藥水
     function playerHeal() {
          if (!isPlayerTurn || player.potions <= 0) return;
 
-         let healAmount = 30;
-         player.hp = Math.min(player.maxHp, player.hp + healAmount); // 不能超過最大血量
+         let healAmount = 50;
+         let actualHeal = Math.min(player.maxHp - player.hp, healAmount); // 計算實際恢復量
+         player.hp += actualHeal;
          player.potions--;
-         addLog(`你喝了一瓶藥水，恢復了 ${healAmount} 點 HP！`, 'player');
+         addLog(`使用了藥水，恢復了 ${actualHeal} 點 HP！`, 'heal');
          
          isPlayerTurn = false;
          updateUI();
-         enemyAction(); // 喝水也要消耗回合
+         enemyAction();
     }
 
-
-    // 5. 事件監聽 (綁定按鈕功能)
+    // 5. 事件監聽
     btnAttack.addEventListener('click', playerAttack);
     btnHeal.addEventListener('click', playerHeal);
 
     // 遊戲初始化
+    addLog(`遭遇了 ${currentEnemy.name}！戰鬥開始！`, 'system');
     updateUI();
 
 </script>
